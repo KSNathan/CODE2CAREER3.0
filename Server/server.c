@@ -10,7 +10,7 @@
 #include "main.h"
 #include <time.h>
 void send_ACK(int sockfd, struct sockaddr_in client_addr, socklen_t len, int block){
-	char  * init_ack_buffer = (char *) malloc(4 * sizeof(char));
+	char  * init_ack_buffer = (char *) malloc(ACK_BUFF_SIZE * sizeof(char));
 	init_ack_buffer[0] = 0;
 	init_ack_buffer[1] = ACK;
 	init_ack_buffer[2] = (block >> 8 & 0xFF);
@@ -19,6 +19,7 @@ void send_ACK(int sockfd, struct sockaddr_in client_addr, socklen_t len, int blo
 		perror("unable to send reply to client\n");
 		exit(EXIT_FAILURE);
 	}
+	printf("Sent ACK for block %d\n", block);
 	free(init_ack_buffer);
 	
 }
@@ -102,7 +103,7 @@ int attempt = 0;
 	
 }
 void handle_WRQ(int sockfd, char *msg, struct sockaddr_in client_addr, socklen_t len){
-char ack_buffer[ACK_BUFF_SIZE];
+
 char *filename = msg + 2;
 int n, block = 0, bytes;
 struct timeval tv;
@@ -139,12 +140,10 @@ do {
 	bytes = recvfrom(sockfd, (char *)msg, BUFFER_SIZE, 0, (struct sockaddr *)&client_addr, &len);
 		
 		if(msg[1] == DATA){
-			block = (msg[3] << 8 | msg[4]);
+			block = (msg[2] << 8 | msg[3]);
 			printf("Received block %d from client. \n", block);
 			fwrite(msg + 4, 1, BLOCK_SIZE, fp);
 			send_ACK(sockfd, client_addr, len, block);
-			printf("Sent ACK for block %d\n", block);
-			
 			if(bytes < BUFFER_SIZE)
 				{
 					break;
@@ -156,6 +155,7 @@ do {
 	}else{
 		//handle scenario where s < 0 after timeout
 		printf("Timed out receiving the Block of data \n");
+		break;
 	}
 
 }while(1);
@@ -213,6 +213,7 @@ socklen_t len;
 		handle_RRQ(sock_dg, msg, client_addr, len);
 		break;
 	case WRQ : 
+		printf("packet contents : %d %d %s",msg[0], msg[1], msg + 2);
 		handle_WRQ(sock_dg, msg, client_addr, len);
 		break;
 
